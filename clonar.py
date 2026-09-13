@@ -145,17 +145,6 @@ class CloneApp:
                        variable=self.messages_var, fg="#ffffff", bg="#2c2f33",
                        font=("Segoe UI", 9), selectcolor="#40444b").pack(anchor="w", padx=20)
 
-        limit_frame = tk.Frame(root, bg="#2c2f33")
-        limit_frame.pack(anchor="w", padx=20, pady=(5,0))
-        tk.Label(limit_frame, text="Limite de mensajes por canal:",
-                 fg="#99aab5", bg="#2c2f33", font=("Segoe UI", 8)).pack(side="left")
-        self.limit_entry = tk.Entry(limit_frame, width=10, bg="#40444b", fg="#ffffff",
-                                     insertbackground="#ffffff", font=("Consolas", 9))
-        self.limit_entry.pack(side="left", padx=(5,0))
-        self.limit_entry.insert(0, "1000")
-        tk.Label(limit_frame, text="(Recomendado: 1000-2000 para evitar problemas)",
-                 fg="#666666", bg="#2c2f33", font=("Segoe UI", 7)).pack(side="left", padx=(8,0))
-
         self.clone_btn = tk.Button(root, text="CLONAR SERVIDOR", font=("Segoe UI", 12, "bold"),
                                     bg="#43b581", fg="#ffffff", activebackground="#3ca374",
                                     cursor="hand2", command=self.start_clone)
@@ -193,7 +182,6 @@ class CloneApp:
         token = self.token_entry.get().strip()
         source_id = self.source_entry.get().strip()
         dest_id = self.dest_entry.get().strip()
-        msg_limit = self.limit_entry.get().strip()
 
         if not token:
             messagebox.showerror("Error", "Pega tu token")
@@ -205,27 +193,21 @@ class CloneApp:
             messagebox.showerror("Error", "ID destino invalido")
             return
 
-        try:
-            msg_limit = int(msg_limit) if msg_limit.isdigit() and int(msg_limit) > 0 else 1000
-        except:
-            msg_limit = 1000
-
         self.running = True
         self.set_btn(False)
         self.log("Conectando...")
 
         t = threading.Thread(target=self.run_thread,
                              args=(token, int(source_id), int(dest_id),
-                                   self.community_var.get(), self.messages_var.get(),
-                                   msg_limit),
+                                   self.community_var.get(), self.messages_var.get()),
                              daemon=True)
         t.start()
 
-    def run_thread(self, token, source_id, dest_id, copy_community, copy_messages, msg_limit):
+    def run_thread(self, token, source_id, dest_id, copy_community, copy_messages):
         try:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            loop.run_until_complete(self.run_async(token, source_id, dest_id, copy_community, copy_messages, msg_limit))
+            loop.run_until_complete(self.run_async(token, source_id, dest_id, copy_community, copy_messages))
         except Exception as e:
             self.log(f"ERROR: {e}")
             self.log(traceback.format_exc())
@@ -282,10 +264,9 @@ class CloneApp:
                 out["fields"] = fields_out
         return out or None
 
-    async def run_async(self, token, source_id, dest_id, copy_community, copy_messages, msg_limit):
+    async def run_async(self, token, source_id, dest_id, copy_community, copy_messages):
         self.client = Client()
         self._http_session = aiohttp.ClientSession()
-        self.msg_limit = msg_limit
 
         @self.client.event
         async def on_ready():
@@ -514,18 +495,13 @@ class CloneApp:
                     try:
                         for thread in src_ch.threads:
                             try:
-                                history_limit = self.msg_limit if self.msg_limit > 0 else None
-                                async for msg in thread.history(limit=history_limit, oldest_first=True):
+                                async for msg in thread.history(limit=None, oldest_first=True):
                                     all_messages.append((thread, msg))
                             except:
                                 try:
                                     before = None
-                                    fetched = 0
                                     while True:
-                                        batch = min(100, self.msg_limit - fetched) if self.msg_limit > 0 else 100
-                                        if batch <= 0:
-                                            break
-                                        url = f"/channels/{thread.id}/messages?limit={batch}"
+                                        url = f"/channels/{thread.id}/messages?limit=100"
                                         if before:
                                             url += f"&before={before}"
                                         data = await self.client.http.request(discord.http.Route("GET", url))
@@ -534,11 +510,8 @@ class CloneApp:
                                         for m in data:
                                             msg = discord.Message(state=self.client._connection, channel=thread, data=m)
                                             all_messages.append((thread, msg))
-                                        fetched += len(data)
                                         before = data[-1]["id"]
                                         if len(data) < 100:
-                                            break
-                                        if self.msg_limit > 0 and fetched >= self.msg_limit:
                                             break
                                         await asyncio.sleep(0.3)
                                 except:
@@ -556,12 +529,8 @@ class CloneApp:
                                 except:
                                     try:
                                         before = None
-                                        fetched = 0
                                         while True:
-                                            batch = min(100, self.msg_limit - fetched) if self.msg_limit > 0 else 100
-                                            if batch <= 0:
-                                                break
-                                            url = f"/channels/{thread.id}/messages?limit={batch}"
+                                            url = f"/channels/{thread.id}/messages?limit=100"
                                             if before:
                                                 url += f"&before={before}"
                                             data = await self.client.http.request(discord.http.Route("GET", url))
@@ -570,11 +539,8 @@ class CloneApp:
                                             for m in data:
                                                 msg = discord.Message(state=self.client._connection, channel=thread, data=m)
                                                 all_messages.append((thread, msg))
-                                            fetched += len(data)
                                             before = data[-1]["id"]
                                             if len(data) < 100:
-                                                break
-                                            if self.msg_limit > 0 and fetched >= self.msg_limit:
                                                 break
                                             await asyncio.sleep(0.3)
                                     except:
@@ -583,18 +549,13 @@ class CloneApp:
                         pass
                 else:
                     try:
-                        history_limit = self.msg_limit if self.msg_limit > 0 else None
-                        async for msg in src_ch.history(limit=history_limit, oldest_first=True):
+                        async for msg in src_ch.history(limit=None, oldest_first=True):
                             all_messages.append((None, msg))
                     except Exception:
                         try:
                             before = None
-                            fetched = 0
                             while True:
-                                batch = min(100, self.msg_limit - fetched) if self.msg_limit > 0 else 100
-                                if batch <= 0:
-                                    break
-                                url = f"/channels/{src_ch.id}/messages?limit={batch}"
+                                url = f"/channels/{src_ch.id}/messages?limit=100"
                                 if before:
                                     url += f"&before={before}"
                                 data = await self.client.http.request(discord.http.Route("GET", url))
@@ -603,11 +564,8 @@ class CloneApp:
                                 for m in data:
                                     msg = discord.Message(state=self.client._connection, channel=src_ch, data=m)
                                     all_messages.append((None, msg))
-                                fetched += len(data)
                                 before = data[-1]["id"]
                                 if len(data) < 100:
-                                    break
-                                if self.msg_limit > 0 and fetched >= self.msg_limit:
                                     break
                                 await asyncio.sleep(0.5)
                         except Exception as e:
