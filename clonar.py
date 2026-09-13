@@ -598,6 +598,7 @@ class CloneApp:
 
                 thread_map = {}
                 sent_messages = {}
+                total_msgs = len(all_messages)
 
                 for idx, (thread_or_none, msg) in enumerate(all_messages, 1):
                     try:
@@ -685,8 +686,8 @@ class CloneApp:
                                 for i, (fname, fdata) in enumerate(files_to_send):
                                     files_dict[f"files[{i}]"] = (fname, fdata)
 
-                                headers = {"Authorization": f"Bot {self.client.http.token}"}
-                                clean_url = actual_webhook_url.split("?")[0]
+                                headers = {}
+                                clean_url = actual_webhook_url.split("?")[0] + "?wait=true"
 
                                 if files_dict:
                                     form = aiohttp.FormData()
