@@ -10,10 +10,7 @@
 
 ### Clona servidores de Discord con un solo clic
 
-[![Watch Demo](https://img.shields.io/badge/📋_Ver_Demo-grey?style=for-the-badge)](#cómo-funciona)
-[![Download](https://img.shields.io/badge/⬇️_Descargar-grey?style=for-the-badge)](#instalación)
 [![GitHub Stars](https://img.shields.io/github/stars/Aitor2010aitor/DISCORD-CLONER-?style=for-the-badge&logo=github)](https://github.com/Aitor2010aitor/DISCORD-CLONER-)
-[![GitHub Forks](https://img.shields.io/github/forks/Aitor2010aitor/DISCORD-CLONER-?style=for-the-badge&logo=github)](https://github.com/Aitor2010aitor/DISCORD-CLONER-)
 
 </div>
 
