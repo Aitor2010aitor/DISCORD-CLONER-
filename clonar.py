@@ -699,8 +699,10 @@ class CloneApp:
                         if msg.reference and msg.reference.message_id:
                             ref_id = str(msg.reference.message_id)
                             if ref_id in sent_messages:
+                                ref_channel_id = str(thread_map[thread_or_none.name].id) if (thread_or_none and thread_or_none.name in thread_map and thread_map[thread_or_none.name]) else str(dst_ch.id)
                                 payload_json["message_reference"] = {
-                                    "message_id": sent_messages[ref_id]
+                                    "message_id": sent_messages[ref_id],
+                                    "channel_id": ref_channel_id
                                 }
 
                         if not payload_json.get("content") and not payload_json.get("embeds") and not files_to_send:
