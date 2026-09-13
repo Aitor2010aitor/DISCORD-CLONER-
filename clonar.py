@@ -267,16 +267,31 @@ class CloneApp:
         return out or None
 
     async def run_async(self, token, source_id, dest_id, copy_community, copy_messages):
-        self.client = Client()
         self._http_session = aiohttp.ClientSession()
+        self.client = Client()
 
         @self.client.event
         async def on_ready():
-            self.log(f"Conectado: {self.client.user}")
+            try:
+                self.log(f"Conectado: {self.client.user}")
 
-            if copy_messages:
+                await asyncio.sleep(2)
+
+                self.log(f"Servidores: {[g.name for g in self.client.guilds]}")
+
                 source = self.client.get_guild(source_id)
-                if source:
+                dest = self.client.get_guild(dest_id)
+
+                if not source:
+                    self.log(f"Error: servidor origen {source_id} no encontrado")
+                    await self.client.close()
+                    return
+                if not dest:
+                    self.log(f"Error: servidor destino {dest_id} no encontrado")
+                    await self.client.close()
+                    return
+
+                if copy_messages:
                     select_channels = [ch for ch in source.text_channels]
                     if hasattr(source, 'forum_channels'):
                         select_channels += [ch for ch in source.forum_channels]
@@ -284,15 +299,27 @@ class CloneApp:
                     while self.selected_channels is None:
                         await asyncio.sleep(0.1)
 
-            try:
-                await self.clonar(source_id, dest_id, copy_community, copy_messages)
+                try:
+                    await self.clonar(source_id, dest_id, copy_community, copy_messages)
+                except Exception as e:
+                    self.log(f"ERROR clonar: {e}")
+                    self.log(traceback.format_exc())
+                finally:
+                    try:
+                        await self._http_session.close()
+                    except:
+                        pass
+                    try:
+                        await self.client.close()
+                    except:
+                        pass
             except Exception as e:
-                self.log(f"ERROR: {e}")
+                self.log(f"ERROR on_ready: {e}")
                 self.log(traceback.format_exc())
-            finally:
-                if self._http_session:
-                    await self._http_session.close()
-                await self.client.close()
+                try:
+                    await self.client.close()
+                except:
+                    pass
 
         try:
             await self.client.start(token)
