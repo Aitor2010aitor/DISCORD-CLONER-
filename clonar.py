@@ -680,27 +680,56 @@ class CloneApp:
 
                         for _retry in range(3):
                             try:
-                                form = aiohttp.FormData()
-                                form.add_field("payload_json", json.dumps(payload_json), content_type="application/json")
-
+                                payload_str = json.dumps(payload_json)
+                                files_dict = {}
                                 for i, (fname, fdata) in enumerate(files_to_send):
-                                    form.add_field(f"files[{i}]", fdata, filename=fname, content_type="application/octet-stream")
+                                    files_dict[f"files[{i}]"] = (fname, fdata)
 
-                                async with self._http_session.post(actual_webhook_url, data=form) as resp:
-                                    if resp.status == 429:
-                                        data = await resp.json()
-                                        wait = data.get("retry_after", 1)
-                                        await asyncio.sleep(wait)
-                                        continue
-                                    if resp.status in (200, 201):
-                                        try:
-                                            resp_data = await resp.json()
-                                            if resp_data and "id" in resp_data:
-                                                sent_messages[str(msg.id)] = resp_data["id"]
-                                        except:
-                                            pass
-                                    break
-                            except:
+                                headers = {"Authorization": f"Bot {self.client.http.token}"}
+                                clean_url = actual_webhook_url.split("?")[0]
+
+                                if files_dict:
+                                    form = aiohttp.FormData()
+                                    form.add_field("payload_json", payload_str, content_type="application/json")
+                                    for key, (fn, fd) in files_dict.items():
+                                        form.add_field(key, fd, filename=fn)
+                                    async with self._http_session.post(clean_url, data=form, headers=headers) as resp:
+                                        if resp.status == 429:
+                                            data = await resp.json()
+                                            wait = data.get("retry_after", 1)
+                                            await asyncio.sleep(wait)
+                                            continue
+                                        if resp.status in (200, 201):
+                                            try:
+                                                resp_data = await resp.json()
+                                                if resp_data and "id" in resp_data:
+                                                    sent_messages[str(msg.id)] = resp_data["id"]
+                                            except:
+                                                pass
+                                        elif resp.status >= 400:
+                                            err = await resp.text()
+                                            self.log(f"  Error {src_ch.name}: {resp.status} - {err[:100]}")
+                                        break
+                                else:
+                                    async with self._http_session.post(clean_url, json=payload_json, headers=headers) as resp:
+                                        if resp.status == 429:
+                                            data = await resp.json()
+                                            wait = data.get("retry_after", 1)
+                                            await asyncio.sleep(wait)
+                                            continue
+                                        if resp.status in (200, 201):
+                                            try:
+                                                resp_data = await resp.json()
+                                                if resp_data and "id" in resp_data:
+                                                    sent_messages[str(msg.id)] = resp_data["id"]
+                                            except:
+                                                pass
+                                        elif resp.status >= 400:
+                                            err = await resp.text()
+                                            self.log(f"  Error {src_ch.name}: {resp.status} - {err[:100]}")
+                                        break
+                            except Exception as e:
+                                self.log(f"  Error envio: {e}")
                                 break
 
                         await asyncio.sleep(0.5)
