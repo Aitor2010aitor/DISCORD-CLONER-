@@ -292,9 +292,16 @@ class CloneApp:
                     return
 
                 if copy_messages:
-                    select_channels = [ch for ch in source.text_channels]
+                    select_channels = []
+                    for ch in source.text_channels:
+                        perms = ch.permissions_for(source.me)
+                        if perms.read_messages and perms.read_message_history:
+                            select_channels.append(ch)
                     if hasattr(source, 'forum_channels'):
-                        select_channels += [ch for ch in source.forum_channels]
+                        for ch in source.forum_channels:
+                            perms = ch.permissions_for(source.me)
+                            if perms.read_messages:
+                                select_channels.append(ch)
                     self.root.after(0, lambda: self.open_selector(select_channels))
                     while self.selected_channels is None:
                         await asyncio.sleep(0.1)
@@ -583,6 +590,8 @@ class CloneApp:
                     try:
                         async for msg in src_ch.history(limit=None, oldest_first=True):
                             all_messages.append((None, msg))
+                    except discord.Forbidden:
+                        continue
                     except Exception:
                         try:
                             before = None
@@ -644,6 +653,9 @@ class CloneApp:
                         for att in msg.attachments:
                             fname = att.filename.lower()
                             url = att.url
+
+                            if att.size > 8 * 1024 * 1024:
+                                continue
 
                             if fname.endswith(image_exts) or (att.content_type and att.content_type.startswith("image/")):
                                 if len(payload_embeds) < 10:
