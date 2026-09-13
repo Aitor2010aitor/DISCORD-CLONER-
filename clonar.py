@@ -195,6 +195,7 @@ class CloneApp:
 
         self.running = True
         self.set_btn(False)
+        self.selected_channels = None
         self.log("Conectando...")
 
         t = threading.Thread(target=self.run_thread,
@@ -214,6 +215,7 @@ class CloneApp:
         finally:
             self.running = False
             self._http_session = None
+            self.selected_channels = None
 
     def sanitize_embed(self, e):
         if not isinstance(e, dict):
@@ -275,9 +277,12 @@ class CloneApp:
             if copy_messages:
                 source = self.client.get_guild(source_id)
                 if source:
-                    select_channels = [ch for ch in source.text_channels] + \
-                                      [ch for ch in source.forum_channels] if hasattr(source, 'forum_channels') else [ch for ch in source.text_channels]
+                    select_channels = [ch for ch in source.text_channels]
+                    if hasattr(source, 'forum_channels'):
+                        select_channels += [ch for ch in source.forum_channels]
                     self.root.after(0, lambda: self.open_selector(select_channels))
+                    while self.selected_channels is None:
+                        await asyncio.sleep(0.1)
 
             try:
                 await self.clonar(source_id, dest_id, copy_community, copy_messages)
